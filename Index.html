@@ -46,21 +46,32 @@
     </div>
 
     <script>
-      // Extract UPI link from URL parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      const upiLink = urlParams.get('upi');
+  const urlParams = new URLSearchParams(window.location.search);
+  const upiLink = urlParams.get("upi");
 
-      if (upiLink) {
-        // Set manual link
-        document.getElementById('manual').href = upiLink;
+  if (upiLink) {
+    const manual = document.getElementById("manual");
+    manual.href = upiLink;
 
-        // Try to redirect automatically
-        setTimeout(() => {
-          window.location.href = upiLink;
-        }, 1500);
-      } else {
-        document.body.innerHTML = "<h2>⚠️ Invalid payment link</h2>";
-      }
-    </script>
+    // Auto redirect
+    setTimeout(() => {
+      window.location.href = upiLink;
+    }, 1200);
+
+    // If app doesn't open, show fallback options after 4s
+    setTimeout(() => {
+      document.querySelector(".card").innerHTML = `
+        <h2>Select your UPI app</h2>
+        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#238636;color:white;border-radius:8px;text-decoration:none;">Google Pay</a>
+        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#8148ff;color:white;border-radius:8px;text-decoration:none;">PhonePe</a>
+        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#00baf2;color:white;border-radius:8px;text-decoration:none;">Paytm</a>
+      `;
+    }, 4000);
+  } else {
+    document.body.innerHTML = "<h2>⚠️ Invalid payment link</h2>";
+  }
+</script>
+
   </body>
+
 </html>
