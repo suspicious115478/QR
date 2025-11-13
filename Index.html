@@ -24,6 +24,18 @@
         width: 90%;
         max-width: 400px;
       }
+      .btn {
+        display: block;
+        margin: 10px;
+        padding: 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: white;
+        font-weight: 600;
+      }
+      .gpay { background: #34a853; }
+      .phonepe { background: #8148ff; }
+      .paytm { background: #00baf2; }
       .loader {
         border: 4px solid #333;
         border-top: 4px solid #58a6ff;
@@ -33,45 +45,43 @@
         animation: spin 1s linear infinite;
         margin: 20px auto;
       }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
-    <div class="card">
+    <div class="card" id="card">
       <h2>Redirecting to your UPI app...</h2>
       <div class="loader"></div>
       <p>If nothing happens, <a id="manual" href="#" style="color:#58a6ff;">click here</a></p>
     </div>
 
     <script>
-  const urlParams = new URLSearchParams(window.location.search);
-  const upiLink = urlParams.get("upi");
+      const urlParams = new URLSearchParams(window.location.search);
+      const pa = urlParams.get("pa") || "test@oksbi";
+      const pn = urlParams.get("pn") || "John";
+      const am = urlParams.get("am") || "1";
+      const cu = "INR";
 
-  if (upiLink) {
-    const manual = document.getElementById("manual");
-    manual.href = upiLink;
+      const upi = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}`;
+      const gpay = `tez://upi/pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}`;
+      const phonepe = `phonepe://upi/pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}`;
+      const paytm = `paytmmp://pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}`;
 
-    // Auto redirect
-    setTimeout(() => {
-      window.location.href = upiLink;
-    }, 1200);
+      const manual = document.getElementById("manual");
+      manual.href = upi;
 
-    // If app doesn't open, show fallback options after 4s
-    setTimeout(() => {
-      document.querySelector(".card").innerHTML = `
-        <h2>Select your UPI app</h2>
-        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#238636;color:white;border-radius:8px;text-decoration:none;">Google Pay</a>
-        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#8148ff;color:white;border-radius:8px;text-decoration:none;">PhonePe</a>
-        <a href="${upiLink}" style="display:block;margin:10px;padding:10px;background:#00baf2;color:white;border-radius:8px;text-decoration:none;">Paytm</a>
-      `;
-    }, 4000);
-  } else {
-    document.body.innerHTML = "<h2>⚠️ Invalid payment link</h2>";
-  }
-</script>
+      // Try opening the default handler first
+      setTimeout(() => { window.location.href = upi; }, 1200);
 
+      // Show manual options after 4s
+      setTimeout(() => {
+        document.getElementById("card").innerHTML = `
+          <h2>Select your UPI app</h2>
+          <a href="${gpay}" class="btn gpay">Google Pay</a>
+          <a href="${phonepe}" class="btn phonepe">PhonePe</a>
+          <a href="${paytm}" class="btn paytm">Paytm</a>
+        `;
+      }, 4000);
+    </script>
   </body>
-
 </html>
