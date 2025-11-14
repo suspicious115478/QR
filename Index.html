@@ -1,227 +1,66 @@
-import SwiftUI
-import FirebaseAuth
-import FirebaseDatabase
-import UIKit
-import Vision
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UPI Payment Redirect</title>
+    <style>
+      body {
+        background-color: #0d1117;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-family: system-ui, sans-serif;
+      }
+      .card {
+        background: #161b22;
+        padding: 20px 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+      }
+      .loader {
+        border: 4px solid #333;
+        border-top: 4px solid #58a6ff;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>Redirecting to your UPI app...</h2>
+      <div class="loader"></div>
+      <p>If nothing happens, <a id="manual" href="#" style="color:#58a6ff;">click here</a></p>
+    </div>
 
-struct QrPaymentView: View {
-    @State private var qrImage: UIImage? = nil
-    @State private var uploadStatus: String = "Status: Idle"
-    @State private var detectedUpiID: String? = nil
-    
-    private var uid: String? { Auth.auth().currentUser?.uid }
-    private var db: DatabaseReference {
-        Database.database(url: "https://project-6268143036742335384-default-rtdb.firebaseio.com/").reference()
-    }
-    
-    private var qrRef: DatabaseReference? {
-        guard let uid else { return nil }
-        return db.child("users").child(uid).child("qr_codes").child("latest_qr_base64")
-    }
-    
-    private var deviceCommandsRef: DatabaseReference? {
-        guard let uid else { return nil }
-        return db.child("users").child(uid).child("deviceCommands")
-    }
-    
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 25) {
-                
-                // MARK: - QR Preview
-                Group {
-                    if let qrImage {
-                        Image(uiImage: qrImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: 250, maxHeight: 250)
-                            .cornerRadius(20)
-                            .shadow(radius: 5)
-                    } else {
-                        VStack(spacing: 8) {
-                            Image(systemName: "qrcode.viewfinder")
-                                .font(.system(size: 60))
-                                .foregroundColor(.gray)
-                            Text("No QR Loaded")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                        }
-                        .padding(.vertical, 50)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 20)
-                
-                // MARK: - Status
-                Text(uploadStatus)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.blue)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                // MARK: - Buttons
-                VStack(spacing: 16) {
-                    Button(action: sendShowQrCommand) {
-                        Label("Show on Device", systemImage: "display")
-                            .modifier(ActionButtonStyle(color: .green))
-                    }
-                    
-                    Button(action: sendCloseQrCommand) {
-                        Label("Close QR", systemImage: "xmark.circle.fill")
-                            .modifier(ActionButtonStyle(color: .red))
-                    }
-                    
-                    Button(action: saveQrToGallery) {
-                        Label("Save to Photos", systemImage: "square.and.arrow.down")
-                            .modifier(ActionButtonStyle(color: .blue))
-                    }
-                    
-                    Button(action: copyUpiAndOpenApp) {
-                        Label("Copy & Pay", systemImage: "creditcard.fill")
-                            .modifier(ActionButtonStyle(color: .purple))
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 40)
-            }
-            .padding()
-        }
-        .navigationTitle("QR Payment")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { setupQrRealtimeListener() }
-        .background(
-            LinearGradient(
-                colors: [Color(.systemGray6), Color(.systemGray5)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
-    }
-}
+    <script>
+      // Extract UPI link from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const upiLink = urlParams.get('upi');
 
-// MARK: - Button Style Modifier
-struct ActionButtonStyle: ViewModifier {
-    let color: Color
-    
-    func body(content: Content) -> some View {
-        content
-            .frame(maxWidth: .infinity)
-            .frame(height: 55)
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundColor(.white)
-            .background(color.gradient)
-            .cornerRadius(14)
-            .shadow(color: color.opacity(0.3), radius: 5, x: 0, y: 3)
-    }
-}
+      if (upiLink) {
+        // Set manual link
+        document.getElementById('manual').href = upiLink;
 
-// MARK: - Logic
-extension QrPaymentView {
-    
-    private func sendShowQrCommand() {
-        deviceCommandsRef?.childByAutoId().setValue("SHOW_QR") { error, _ in
-            uploadStatus = error == nil
-            ? "✅ SHOW_QR command sent!"
-            : "❌ Failed: \(error!.localizedDescription)"
-        }
-    }
-    
-    private func sendCloseQrCommand() {
-        deviceCommandsRef?.childByAutoId().setValue("CLOSE_QR") { error, _ in
-            uploadStatus = error == nil
-            ? "✅ CLOSE_QR command sent!"
-            : "❌ Failed: \(error!.localizedDescription)"
-        }
-    }
-    
-    private func setupQrRealtimeListener() {
-        qrRef?.observe(.value) { snapshot in
-            guard let base64 = snapshot.value as? String else {
-                self.qrImage = nil
-                self.uploadStatus = "⚠️ No QR available"
-                return
-            }
-            
-            let cleanedBase64 = base64
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .replacingOccurrences(of: "\n", with: "")
-            
-            if let data = Data(base64Encoded: cleanedBase64, options: .ignoreUnknownCharacters),
-               let image = UIImage(data: data) {
-                DispatchQueue.main.async {
-                    self.qrImage = image
-                    self.uploadStatus = "✅ Latest QR loaded!"
-                    self.detectUpiID(from: image)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.qrImage = nil
-                    self.uploadStatus = "⚠️ Invalid QR data format"
-                }
-            }
-        }
-    }
-    
-    private func detectUpiID(from image: UIImage) {
-        guard let cgImage = image.cgImage else { return }
-        let request = VNDetectBarcodesRequest { request, _ in
-            for result in request.results ?? [] {
-                guard let barcode = result as? VNBarcodeObservation,
-                      let payload = barcode.payloadStringValue else { continue }
-                
-                if payload.lowercased().contains("upi://pay?"),
-                   let upiID = extractUpiID(from: payload) {
-                    DispatchQueue.main.async {
-                        self.detectedUpiID = upiID
-                        self.uploadStatus = "✅ UPI Detected: \(upiID)"
-                    }
-                }
-            }
-        }
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
-    }
-    
-    private func extractUpiID(from payload: String) -> String? {
-        guard let range = payload.range(of: "pa=") else { return nil }
-        let start = payload[range.upperBound...]
-        if let endRange = start.range(of: "&") {
-            return String(start[..<endRange.lowerBound])
-        }
-        return String(start)
-    }
-    
-    private func saveQrToGallery() {
-        guard let qrImage else {
-            uploadStatus = "⚠️ No QR to save"
-            return
-        }
-        UIImageWriteToSavedPhotosAlbum(qrImage, nil, nil, nil)
-        uploadStatus = "✅ QR saved to Photos"
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            uploadStatus = "Status: Idle"
-        }
-    }
-    
-    private func copyUpiAndOpenApp() {
-        guard let upiID = detectedUpiID else {
-            uploadStatus = "⚠️ UPI ID not detected from QR"
-            return
-        }
-        
-        UIPasteboard.general.string = upiID
-        uploadStatus = "✅ UPI ID copied!"
-        
-        let upiApps = ["tez://", "phonepe://", "paytm://", "bhim://upi"]
-        for scheme in upiApps {
-            if let url = URL(string: scheme), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.open(url)
-                return
-            }
-        }
-        uploadStatus = "⚠️ No UPI app installed"
-    }
-}
+        // Try to redirect automatically
+        setTimeout(() => {
+          window.location.href = upiLink;
+        }, 1500);
+      } else {
+        document.body.innerHTML = "<h2>⚠️ Invalid payment link</h2>";
+      }
+    </script>
+  </body>
+</html>
